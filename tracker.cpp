@@ -27,6 +27,7 @@
 #include <XnCppWrapper.h>
 #include "SceneDrawer.h"
 #include "tracker.h"
+#include "data.h"
 
 //---------------------------------------------------------------------------
 // Globals
@@ -292,9 +293,12 @@ void glInit (int * pargc, char ** argv)
 	}
 
 Tracker::Tracker() {
+    size_t totalSize = 640 * 480 * 4;
+    data = new float[totalSize];
 }
 
 Tracker::~Tracker() {
+    delete data;
 }
 
 int Tracker::initialize()
@@ -367,6 +371,7 @@ int Tracker::initialize()
 	nRetVal = g_Context.StartGeneratingAll();
 	CHECK_RC(nRetVal, "StartGenerating");
 
+/*
 #ifndef USE_GLES
 	glInit(&argc, argv);
 	//glutMainLoop();
@@ -391,9 +396,86 @@ int Tracker::initialize()
 
 	CleanupExit();
 #endif
+*/
 }
 
-void Tracker::update() {
-    glutDisplay();
-    glutSwapBuffers();
+Data Tracker::jointUpdate() {
+
+    Data result;
+
+	XnUInt16 nUsers = 4;
+	XnUserID aUsers[nUsers];
+    XnPoint3D com;
+
+	g_UserGenerator.GetUsers(aUsers, nUsers);
+    g_Context.WaitOneUpdateAll(g_DepthGenerator);
+
+	xn::SceneMetaData sceneMD;
+    g_UserGenerator.GetUserPixels(0, sceneMD);
+
+	for (int i = 0; i < nUsers; ++i) {
+		if (g_UserGenerator.GetSkeletonCap().IsTracking(aUsers[i])) {
+			g_UserGenerator.GetCoM(aUsers[i], com);
+			g_DepthGenerator.ConvertRealWorldToProjective(1, &com, &com);
+
+            Player player;
+
+            for(int j = XN_SKEL_HEAD; j < XN_SKEL_RIGHT_FOOT; j++) {
+
+                Joint joint;
+
+                XnSkeletonJointPosition jointPosition;
+                XnSkeletonJointOrientation jointOrientation;
+
+                g_UserGenerator.GetSkeletonCap().GetSkeletonJointPosition(aUsers[i], (XnSkeletonJoint)j, jointPosition);
+                g_UserGenerator.GetSkeletonCap().GetSkeletonJointOrientation(aUsers[i], (XnSkeletonJoint)j, jointOrientation);
+
+                XnPoint3D position = jointPosition.position;
+                XnMatrix3X3 orientation = jointOrientation.orientation;
+
+                joint.position.push_back(position.X);
+                joint.position.push_back(position.Y);
+                joint.position.push_back(position.Z);
+
+                for(int k = 0; k < 10; k++) {
+                    joint.rotation.push_back(orientation.elements[k]);
+                }
+
+                player.joints.push_back(joint);
+
+            }
+            result.players.push_back(player);
+        }
+    }
+
+    unsigned short *d = (unsigned short*) sceneMD.Data();
+
+    result.width = sceneMD.XRes();
+    result.height = sceneMD.YRes();
+    double wxh = result.width * result.height;
+
+    for(int i = 0; i < wxh; i++) {
+        //if(d[i] == 0) {
+        if(i < wxh/2) {
+            data[i * 4 + 0] = 0; 
+            data[i * 4 + 1] = 0; 
+            data[i * 4 + 2] = 0; 
+            data[i * 4 + 3] = 0.2; 
+        } else {
+            data[i * 4 + 0] = 1; 
+            data[i * 4 + 1] = 1; 
+            data[i * 4 + 2] = 1; 
+            data[i * 4 + 3] = 0.2; 
+        }
+    }
+
+    result.data = (long)data;
+
+    return result;
+}
+
+Data Tracker::poll() {
+    return this->jointUpdate();
+    //glutDisplay();
+    //glutSwapBuffers();
 }

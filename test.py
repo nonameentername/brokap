@@ -2,7 +2,4 @@
 from tracker import Tracker
 
 t = Tracker()
-t.initialize()
-
-while True:
-    t.update()
+a = t.poll()
