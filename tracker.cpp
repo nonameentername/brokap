@@ -420,7 +420,7 @@ Data Tracker::jointUpdate() {
 
             Player player;
 
-            for(int j = XN_SKEL_HEAD; j < XN_SKEL_RIGHT_FOOT; j++) {
+            for(int j = XN_SKEL_HEAD; j <= XN_SKEL_RIGHT_FOOT; j++) {
 
                 Joint joint;
 
@@ -437,7 +437,7 @@ Data Tracker::jointUpdate() {
                 joint.position.push_back(position.Y);
                 joint.position.push_back(position.Z);
 
-                for(int k = 0; k < 10; k++) {
+                for(int k = 0; k < 9; k++) {
                     joint.rotation.push_back(orientation.elements[k]);
                 }
 
@@ -455,15 +455,14 @@ Data Tracker::jointUpdate() {
     double wxh = result.width * result.height;
 
     for(int i = 0; i < wxh; i++) {
-        //if(d[i] == 0) {
-        if(i < wxh/2) {
+        if(d[i] == 0) {
             data[i * 4 + 0] = 0; 
             data[i * 4 + 1] = 0; 
             data[i * 4 + 2] = 0; 
             data[i * 4 + 3] = 0.2; 
         } else {
-            data[i * 4 + 0] = 1; 
-            data[i * 4 + 1] = 1; 
+            data[i * 4 + 0] = 0; 
+            data[i * 4 + 1] = 0; 
             data[i * 4 + 2] = 1; 
             data[i * 4 + 3] = 0.2; 
         }

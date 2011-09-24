@@ -11,4 +11,4 @@ swig: tracker.i
 	swig -python -c++ tracker.i
 
 clean:
-	rm _tracker_wrap.so tracker_wrap.cxx tracker_wrap.py*
+	rm _tracker_wrap.so tracker_wrap.cxx tracker_wrap.py* *.pyc

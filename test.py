@@ -2,4 +2,6 @@
 from tracker import Tracker
 
 t = Tracker()
-a = t.poll()
+t.poll()
+print t.getRot(t.ITEMS[0])
+print t.getRot('neck')
