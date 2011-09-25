@@ -68,6 +68,8 @@ XnBool g_bRecord = false;
 
 XnBool g_bQuit = false;
 
+using namespace std;
+
 //---------------------------------------------------------------------------
 // Code
 //---------------------------------------------------------------------------
@@ -301,7 +303,7 @@ Tracker::~Tracker() {
     delete data;
 }
 
-int Tracker::initialize()
+int Tracker::initialize(string config_file)
 {
 	XnStatus nRetVal = XN_STATUS_OK;
     int argc = 0;
@@ -321,7 +323,7 @@ int Tracker::initialize()
 	else
 	{
 		xn::EnumerationErrors errors;
-		nRetVal = g_Context.InitFromXmlFile(SAMPLE_XML_PATH, &errors);
+		nRetVal = g_Context.InitFromXmlFile(config_file.c_str(), &errors);
 		if (nRetVal == XN_STATUS_NO_NODE_PRESENT)
 		{
 			XnChar strError[1024];

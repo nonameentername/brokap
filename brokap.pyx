@@ -1,4 +1,11 @@
 from libcpp.vector cimport vector
+import brokap_dir
+import os.path as path
+
+cdef extern from "string" namespace "std":
+    cdef cppclass string:
+        string(char* s)
+        char* c_str()
 
 cdef extern from "data.h":
     cdef cppclass Joint:
@@ -18,7 +25,7 @@ cdef extern from "data.h":
 cdef extern from "tracker.h":
     cdef cppclass Tracker:
         Tracker()
-        int initialize()
+        int initialize(string config_file)
         Data poll()
 
 cdef class Kinect:
@@ -57,7 +64,8 @@ cdef class Kinect:
 
     def __cinit__(self):
         self.ptr = new Tracker()
-        self.ptr.initialize()
+        config_file = path.join(path.dirname(path.abspath(brokap_dir.__file__)), 'SamplesConfig.xml').encode('UTF-8')
+        self.ptr.initialize(string(config_file))
         data = self.ptr.poll()
         self.width = data.width
         self.height = data.height

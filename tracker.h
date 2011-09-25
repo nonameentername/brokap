@@ -2,6 +2,7 @@
 #define _tracker_h
 
 #include <XnCppWrapper.h>
+#include <string>
 #include "data.h"
 
 class Tracker {
@@ -11,7 +12,7 @@ public:
     float *data;
     Tracker();
     ~Tracker();
-    int initialize();
+    int initialize(std::string config_file);
     Data poll();
 };
 
