@@ -1,17 +1,17 @@
 #ifndef _data_h
 #define _data_h
 
-#include <list>
+#include <vector>
 
 class Joint {
 public:
-    std::list<float> position;
-    std::list<float> rotation;
+    std::vector<float> position;
+    std::vector<float> rotation;
 };
 
 class Player {
 public:
-    std::list<Joint> joints;
+    std::vector<Joint> joints;
 };
 
 class Data {
@@ -20,7 +20,7 @@ public:
     int width;
     int height;
     long data;
-    std::list<Player> players;
+    std::vector<Player> players;
     Data();
     ~Data();
 };

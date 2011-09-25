@@ -1,7 +1,7 @@
-#!/usr/bin/env python
-from tracker import Tracker
+#!/usr/bin/env python3.2
+from brokap import Kinect
 
-t = Tracker()
-t.poll()
-print t.getRot(t.ITEMS[0])
-print t.getRot('neck')
+kinect = Kinect()
+kinect.poll()
+print (kinect.get_position('head'))
+print (kinect.get_rotation(Kinect.ITEMS[0]))
