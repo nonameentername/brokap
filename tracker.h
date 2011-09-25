@@ -5,11 +5,12 @@
 #include "data.h"
 
 class Tracker {
+private:
+    Data jointUpdate();
 public:
     float *data;
     Tracker();
     ~Tracker();
-    Data jointUpdate();
     int initialize();
     Data poll();
 };
