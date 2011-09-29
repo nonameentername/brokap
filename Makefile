@@ -1,5 +1,5 @@
 CC = g++
-FLAGS = -fPIC -shared
+FLAGS = -fPIC -shared -g -O0
 SOURCE = tracker.cpp brokap.cpp SceneDrawer.cpp data.cpp
 INCLUDE = -I$(HOME)/source/kinect/OpenNI/Include `pkg-config python3 --cflags`
 LIBS = -lOpenNI -lglut -lGL `pkg-config python3 --libs`

@@ -2,6 +2,8 @@ from libcpp.vector cimport vector
 import brokap_dir
 import os.path as path
 
+DEF TOTALSIZE = 921600
+
 cdef extern from "string" namespace "std":
     cdef cppclass string:
         string(char* s)
@@ -18,21 +20,21 @@ cdef extern from "data.h":
     cdef cppclass Data:
         int width
         int height
-        long data
         vector[Player] players
         Data()
 
 cdef extern from "tracker.h":
     cdef cppclass Tracker:
+        float data[TOTALSIZE]
         Tracker()
         int initialize(string config_file)
         Data poll()
 
 cdef class Kinect:
     cdef Tracker *ptr
-    cdef int width
-    cdef int height
-    cdef long data
+    cdef int _width
+    cdef int _height
+    cdef object _data
     cdef object _players
 
     ITEMS = [
@@ -67,9 +69,8 @@ cdef class Kinect:
         config_file = path.join(path.dirname(path.abspath(brokap_dir.__file__)), 'SamplesConfig.xml').encode('UTF-8')
         self.ptr.initialize(string(config_file))
         data = self.ptr.poll()
-        self.width = data.width
-        self.height = data.height
-        self.data = data.data
+        self._width = data.width
+        self._height = data.height
 
     def __dealloc__(self):
         del self.ptr
@@ -86,6 +87,8 @@ cdef class Kinect:
             for j in range(0, data.players[i].joints.size()):
                 new_joint = {}
                 new_joint['position'] = []
+                new_joint['rotation'] = []
+
                 for k in range(0, data.players[i].joints[j].position.size()):
                     new_joint['position'].append(data.players[i].joints[j].position[k])
                    
@@ -95,18 +98,31 @@ cdef class Kinect:
 
             self._players.append(new_player)
 
+        self._data = []
+        for i in range(0, TOTALSIZE):
+            self._data.append(self.ptr.data[i])
+
     def get_position(self, name):
         index = Kinect.ITEMS.index(name)
         if len(self._players) > 0:
-            return self._players[0]['joints'][index].position
+            return self._players[0]['joints'][index]['position']
         return [0] * 3
 
     def _get_rotation(self, name):
         index = Kinect.ITEMS.index(name)
         if len(self._players) > 0:
-            return self._players[0]['joints'][index].rotation
+            return self._players[0]['joints'][index]['rotation']
         return [0] * 9
 
     def get_rotation(self, name):
         r = self._get_rotation(name)
         return (r[0:3], r[3:6], r[6:9])
+
+    def get_width(self):
+        return self._width
+
+    def get_height(self):
+        return self._height
+
+    def get_data(self):
+        return self._data

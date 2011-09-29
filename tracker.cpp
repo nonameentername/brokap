@@ -295,12 +295,9 @@ void glInit (int * pargc, char ** argv)
 	}
 
 Tracker::Tracker() {
-    size_t totalSize = 640 * 480 * 4;
-    data = new float[totalSize];
 }
 
 Tracker::~Tracker() {
-    delete data;
 }
 
 int Tracker::initialize(string config_file)
@@ -458,19 +455,15 @@ Data Tracker::jointUpdate() {
 
     for(int i = 0; i < wxh; i++) {
         if(d[i] == 0) {
-            data[i * 4 + 0] = 0; 
-            data[i * 4 + 1] = 0; 
-            data[i * 4 + 2] = 0; 
-            data[i * 4 + 3] = 0.2; 
+            data[i * 3 + 0] = 0; 
+            data[i * 3 + 1] = 0; 
+            data[i * 3 + 2] = 0; 
         } else {
-            data[i * 4 + 0] = 0; 
-            data[i * 4 + 1] = 0; 
-            data[i * 4 + 2] = 1; 
-            data[i * 4 + 3] = 0.2; 
+            data[i * 3 + 0] = 1; 
+            data[i * 3 + 1] = 1; 
+            data[i * 3 + 2] = 1; 
         }
     }
-
-    result.data = (long)data;
 
     return result;
 }

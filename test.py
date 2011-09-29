@@ -2,6 +2,8 @@
 from brokap import Kinect
 
 kinect = Kinect()
-kinect.poll()
-print (kinect.get_position('head'))
-print (kinect.get_rotation(Kinect.ITEMS[0]))
+
+while True:
+    kinect.poll()
+    print (kinect.get_position('head'))
+    print (kinect.get_rotation(Kinect.ITEMS[0]))

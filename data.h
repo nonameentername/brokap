@@ -15,11 +15,9 @@ public:
 };
 
 class Data {
-private:
 public:
     int width;
     int height;
-    long data;
     std::vector<Player> players;
     Data();
     ~Data();
