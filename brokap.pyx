@@ -104,15 +104,17 @@ cdef class Kinect:
 
     def get_position(self, name):
         index = Kinect.ITEMS.index(name)
-        if len(self._players) > 0:
+        try:
             return self._players[0]['joints'][index]['position']
-        return [0] * 3
+        except:
+            return [0] * 3
 
     def _get_rotation(self, name):
         index = Kinect.ITEMS.index(name)
-        if len(self._players) > 0:
+        try:
             return self._players[0]['joints'][index]['rotation']
-        return [0] * 9
+        except:
+            return [0] * 9
 
     def get_rotation(self, name):
         r = self._get_rotation(name)
