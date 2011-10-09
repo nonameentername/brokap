@@ -36,31 +36,36 @@ cdef class Kinect:
     cdef int _height
     cdef object _data
     cdef object _players
+    cdef object _items
 
     ITEMS = [
         'head',
         'neck',
         'torso',
-        'waist',
-        'left_collar',
+        #'waist',
+
+        #'left_collar',
         'left_shoulder',
         'left_elbow',
-        'left_wrist',
+        #'left_wrist',
         'left_hand',
-        'left_fingertip',
-        'right_collar',
+        #'left_fingertip',
+
+        #'right_collar',
         'right_shoulder',
         'right_elbow',
-        'right_wrist',
+        #'right_wrist',
         'right_hand',
-        'right_fingertip',
+        #'right_fingertip',
+
         'left_hip',
         'left_knee',
-        'left_ankle',
+        #'left_ankle',
         'left_foot',
+
         'right_hip',
         'right_knee',
-        'right_ankle',
+        #'right_ankle',
         'right_foot',
     ]
 
@@ -71,6 +76,38 @@ cdef class Kinect:
         data = self.ptr.poll()
         self._width = data.width
         self._height = data.height
+
+        self._items = [
+            'head',
+            'neck',
+            'torso',
+            'waist',
+
+            'left_collar',
+            'left_shoulder',
+            'left_elbow',
+            'left_wrist',
+            'left_hand',
+            'left_fingertip',
+
+            'right_collar',
+            'right_shoulder',
+            'right_elbow',
+            'right_wrist',
+            'right_hand',
+            'right_fingertip',
+
+            'left_hip',
+            'left_knee',
+            'left_ankle',
+            'left_foot',
+
+            'right_hip',
+            'right_knee',
+            'right_ankle',
+            'right_foot',
+        ]
+
 
     def __dealloc__(self):
         del self.ptr
@@ -90,7 +127,7 @@ cdef class Kinect:
                 new_joint['rotation'] = []
 
                 for k in range(0, data.players[i].joints[j].position.size()):
-                    new_joint['position'].append(data.players[i].joints[j].position[k])
+                    new_joint['position'].append(data.players[i].joints[j].position[k]/100)
                    
                 for k in range(0, data.players[i].joints[j].rotation.size()):
                     new_joint['rotation'].append(data.players[i].joints[j].rotation[k])
@@ -103,14 +140,15 @@ cdef class Kinect:
             self._data.append(self.ptr.data[i])
 
     def get_position(self, name):
-        index = Kinect.ITEMS.index(name)
+        index = self._items.index(name)
         try:
-            return self._players[0]['joints'][index]['position']
+            p = self._players[0]['joints'][index]['position']
+            return [p[0], p[2], p[1]]
         except:
             return [0] * 3
 
     def _get_rotation(self, name):
-        index = Kinect.ITEMS.index(name)
+        index = self._items.index(name)
         try:
             return self._players[0]['joints'][index]['rotation']
         except:

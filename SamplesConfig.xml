@@ -16,7 +16,7 @@
 	<ProductionNodes>
 		<Node type="Depth" name="Depth1">
 			<Configuration>
-				<Mirror on="true"/>
+				<Mirror on="false"/>
 			</Configuration>
 		</Node>
 		<Node type="Image" name="Image1" stopOnError="false">

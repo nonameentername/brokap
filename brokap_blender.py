@@ -4,9 +4,15 @@ sys.path.append('/home/wmendiza/research/blender/brokap')
 
 import bpy
 from bgl import *
+from mathutils import Matrix
 
-from brokap import Kinect
-kinect = Kinect()
+try:
+    kinect.poll()
+except:
+    from brokap import Kinect
+    kinect = Kinect()
+
+calibration = {}
 
 def draw_callback(self, context):
     
@@ -91,6 +97,64 @@ class BrokapUI(bpy.types.Panel):
         colL.operator('brokapui.record', text='record', icon='PLAY') #PAUSE
         colR.operator('brokapui.stop', text='stop', icon='PAUSE')
 
+class BrokapUI_calibrate(bpy.types.Operator):
+    bl_label = "Brokap calibrate"
+    bl_idname = 'brokapui.calibrate'
+    bl_description = 'Calibrate kinect movements'
+    
+    _timer = None
+    
+    def __init__(self):
+        pass
+    
+    def __del__(self):
+        pass
+        
+    def modal(self, context, event):
+        context.area.tag_redraw()
+        
+        if time.time() - self._start > 10:
+            context.window_manager.event_timer_remove(self._timer)
+            try:
+                context.region.callback_remove(self._handle)
+            except:
+                pass
+
+            torso = bpy.data.objects['torso'].location
+            left_foot = bpy.data.objects['left_foot'].location
+            calibration['x'] = torso[0]
+            calibration['y'] = torso[1]
+            calibration['z'] = left_foot[2]
+
+            for item in kinect.ITEMS:
+                bpy.data.objects[item].location[0] -= calibration['x']
+                bpy.data.objects[item].location[1] -= calibration['y']
+                bpy.data.objects[item].location[2] -= calibration['z']
+
+        elif event.type == 'ESC':
+            context.window_manager.event_timer_remove(self._timer)
+            context.region.callback_remove(self._handle)
+            return {'CANCELLED'}
+        elif event.type == 'TIMER':
+            print(context.object.name)
+            kinect.poll()
+
+            for item in kinect.ITEMS:
+                bpy.data.objects[item].location = kinect.get_position(item)
+            
+        return {'PASS_THROUGH'}
+    
+    def execute(self, context):
+        self._start = time.time()
+
+        context.window_manager.modal_handler_add(self)
+        self._handle = context.region.callback_add(draw_callback, (self, context), 'POST_PIXEL')
+        self.report('INFO', 'start recording')
+        self._timer = context.window_manager.event_timer_add(0.1, context.window)        
+        return {'RUNNING_MODAL'}
+
+
+
 class BrokapUI_record(bpy.types.Operator):
     bl_label = "Brokap record"
     bl_idname = 'brokapui.record'
@@ -118,7 +182,17 @@ class BrokapUI_record(bpy.types.Operator):
         elif event.type == 'TIMER':
             print(context.object.name)
             kinect.poll()
-            context.object.location = kinect.get_position('head')
+
+            for item in kinect.ITEMS:
+                bpy.data.objects[item].location = kinect.get_position(item)
+                bpy.data.objects[item].location[0] -= calibration['x']
+                bpy.data.objects[item].location[1] -= calibration['y']
+                bpy.data.objects[item].location[2] -= calibration['z']
+
+                #bpy.data.objects[item].rotation_quaternion = Matrix(kinect.get_rotation(item)).to_quaternion()
+            
+            #context.object.location = kinect.get_position('torso')
+            #context.object.rotation_quaternion = Matrix(kinect.get_rotation('torso')).to_quaternion()
 
             #draw_callback(self, context)
             
@@ -126,6 +200,7 @@ class BrokapUI_record(bpy.types.Operator):
     
     def execute(self, context):
         bpy.types.brokapui.active = True
+
         context.window_manager.modal_handler_add(self)
         self._handle = context.region.callback_add(draw_callback, (self, context), 'POST_PIXEL')
         self.report('INFO', 'start recording')
@@ -145,12 +220,14 @@ class BrokapUI_stop(bpy.types.Operator):
 
 def register():
     bpy.utils.register_class(BrokapUI)
+    bpy.utils.register_class(BrokapUI_calibrate)
     bpy.utils.register_class(BrokapUI_record)
     bpy.utils.register_class(BrokapUI_stop)
 
 
 def unregister():
     bpy.utils.unregister_class(BrokapUI)
+    bpy.utils.unregister_class(BrokapUI_calibrate)
     bpy.utils.unregister_class(BrokapUI_record)
     bpy.utils.unregister_class(BrokapUI_stop)
 

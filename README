@@ -1,2 +1,16 @@
-install:
-    libpcre3-dev
+To build this project you will need to build openni:
+
+The following is a good guide:
+http://www.keyboardmods.com/2010/12/howto-kinect-openninite-skeleton.html
+
+To build brokap in ubuntu:
+
+    sudo apt-get install virtualenvwrapper
+    mkdir ~/.virtualenvs
+    mkvirtualenv brokap
+    git clone https://nonameentername@github.com/nonameentername/brokap.git
+    cd brokap
+    pip install -r requirements.txt
+    make
+
+update brokap_blender.py to point to the source directory and open from blender.
