@@ -14,6 +14,14 @@ except:
 
 calibration = {}
 
+def set_bone_location(armature, name, location):
+    x, y, z = location
+    armature.data.edit_bones[name].head.xyz = (x, y, z)
+    armature.data.edit_bones[name].tail.xyz = (x, y, z + 1)
+
+def get_bone_location(armature, name):
+    return armature.data.edit_bones[name].head.xyz
+
 def draw_callback(self, context):
     
     data = kinect.get_data()
@@ -97,6 +105,23 @@ class BrokapUI(bpy.types.Panel):
         colL.operator('brokapui.record', text='record', icon='PLAY') #PAUSE
         colR.operator('brokapui.stop', text='stop', icon='PAUSE')
 
+class BrokapUI_create(bpy.types.Operator):
+    bl_label = "Brokap create armature"
+    bl_idname = 'brokapui.create'
+    bl_description = 'Create armature bones'
+    
+    def invoke(self, context, event):
+        self.report({'INFO'}, 'create armature')
+        bpy.ops.object.armature_add()
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.armature.select_all()
+        bpy.ops.armature.delete()
+        bpy.ops.armature.select_all(action='DESELECT')
+        for item in kinect.ITEMS:
+            bpy.ops.armature.bone_primitive_add(name=item)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        return {'FINISHED'}
+
 class BrokapUI_calibrate(bpy.types.Operator):
     bl_label = "Brokap calibrate"
     bl_idname = 'brokapui.calibrate'
@@ -112,44 +137,68 @@ class BrokapUI_calibrate(bpy.types.Operator):
         
     def modal(self, context, event):
         context.area.tag_redraw()
+        armature = context.object
         
-        if time.time() - self._start > 10:
+        if time.time() - self._start > 20:
             context.window_manager.event_timer_remove(self._timer)
+
             try:
                 context.region.callback_remove(self._handle)
             except:
                 pass
+        
+            torso_location = get_bone_location(armature, 'torso')
+            left_foot_location = get_bone_location(armature, 'left_foot')
+            calibration['x'] = torso_location[0]
+            calibration['y'] = torso_location[1]
+            calibration['z'] = left_foot_location[2]
 
-            torso = bpy.data.objects['torso'].location
-            left_foot = bpy.data.objects['left_foot'].location
-            calibration['x'] = torso[0]
-            calibration['y'] = torso[1]
-            calibration['z'] = left_foot[2]
+            print (calibration)
 
             for item in kinect.ITEMS:
-                bpy.data.objects[item].location[0] -= calibration['x']
-                bpy.data.objects[item].location[1] -= calibration['y']
-                bpy.data.objects[item].location[2] -= calibration['z']
+                location = get_bone_location(armature, item)
+                print ('before:', location)
+                location[0] -= calibration['x']
+                location[1] -= calibration['y']
+                location[2] -= calibration['z']
+                print ('after:', location)
+                set_bone_location(armature, item, location)
+
+            return {'FINISHED'}
+
+            """
+            def translate_bone(armature, name, translation):
+                tx, ty, tz = translation
+                x, y, z = armature.data.edit_bones[name].head.xyz
+                armature.data.edit_bones[name].head.xyz = (x + tx, y + ty, z + tz)
+                armature.data.edit_bones[name].tail.xyz = (x + tx, y + ty, z + tz + 1)
+
+            """
+
+            #bpy.ops.object.mode_set(mode='OBJECT')
 
         elif event.type == 'ESC':
             context.window_manager.event_timer_remove(self._timer)
             context.region.callback_remove(self._handle)
+            bpy.ops.object.mode_set(mode='OBJECT')
             return {'CANCELLED'}
         elif event.type == 'TIMER':
             print(context.object.name)
             kinect.poll()
 
-            for item in kinect.ITEMS:
-                bpy.data.objects[item].location = kinect.get_position(item)
+            if context.edit_object:
+                for item in kinect.ITEMS:
+                    set_bone_location(armature, item, kinect.get_position(item))
             
         return {'PASS_THROUGH'}
     
     def execute(self, context):
         self._start = time.time()
 
+        bpy.ops.object.mode_set(mode='EDIT')
         context.window_manager.modal_handler_add(self)
         self._handle = context.region.callback_add(draw_callback, (self, context), 'POST_PIXEL')
-        self.report('INFO', 'start recording')
+        self.report({'INFO'}, 'start recording')
         self._timer = context.window_manager.event_timer_add(0.1, context.window)        
         return {'RUNNING_MODAL'}
 
@@ -203,7 +252,7 @@ class BrokapUI_record(bpy.types.Operator):
 
         context.window_manager.modal_handler_add(self)
         self._handle = context.region.callback_add(draw_callback, (self, context), 'POST_PIXEL')
-        self.report('INFO', 'start recording')
+        self.report({'INFO'}, 'start recording')
         self._timer = context.window_manager.event_timer_add(0.1, context.window)        
         return {'RUNNING_MODAL'}
 
@@ -214,12 +263,13 @@ class BrokapUI_stop(bpy.types.Operator):
     bl_description = 'Stop recording'
     
     def invoke(self, context, event):
-        self.report('INFO', 'stop recording')
+        self.report({'INFO'}, 'stop recording')
         bpy.types.brokapui.active = False
         return {'FINISHED'}
 
 def register():
     bpy.utils.register_class(BrokapUI)
+    bpy.utils.register_class(BrokapUI_create)
     bpy.utils.register_class(BrokapUI_calibrate)
     bpy.utils.register_class(BrokapUI_record)
     bpy.utils.register_class(BrokapUI_stop)
@@ -227,6 +277,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(BrokapUI)
+    bpy.utils.unregister_class(BrokapUI_create)
     bpy.utils.unregister_class(BrokapUI_calibrate)
     bpy.utils.unregister_class(BrokapUI_record)
     bpy.utils.unregister_class(BrokapUI_stop)
