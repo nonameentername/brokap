@@ -33,6 +33,7 @@
 // Globals
 //---------------------------------------------------------------------------
 xn::Context g_Context;
+xn::ScriptNode g_scriptNode;
 xn::DepthGenerator g_DepthGenerator;
 xn::UserGenerator g_UserGenerator;
 
@@ -76,7 +77,7 @@ using namespace std;
 
 void CleanupExit()
 {
-	g_Context.Shutdown();
+	g_Context.Release();
 
 	exit (1);
 }
@@ -101,39 +102,53 @@ void XN_CALLBACK_TYPE User_LostUser(xn::UserGenerator& generator, XnUserID nId, 
 	printf("Lost user %d\n", nId);
 }
 // Callback: Detected a pose
-void XN_CALLBACK_TYPE UserPose_PoseDetected(xn::PoseDetectionCapability& capability, const XnChar* strPose, XnUserID nId, void* pCookie)
+void XN_CALLBACK_TYPE UserPose_PoseDetected(xn::PoseDetectionCapability& /*capability*/, const XnChar* strPose, XnUserID nId, void* /*pCookie*/)
 {
-	printf("Pose %s detected for user %d\n", strPose, nId);
-	g_UserGenerator.GetPoseDetectionCap().StopPoseDetection(nId);
-	g_UserGenerator.GetSkeletonCap().RequestCalibration(nId, TRUE);
+    XnUInt32 epochTime = 0;
+    xnOSGetEpochTime(&epochTime);
+    printf("%d Pose %s detected for user %d\n", epochTime, strPose, nId);
+    g_UserGenerator.GetPoseDetectionCap().StopPoseDetection(nId);
+    g_UserGenerator.GetSkeletonCap().RequestCalibration(nId, TRUE);
 }
+
 // Callback: Started calibration
-void XN_CALLBACK_TYPE UserCalibration_CalibrationStart(xn::SkeletonCapability& capability, XnUserID nId, void* pCookie)
+void XN_CALLBACK_TYPE UserCalibration_CalibrationStart(xn::SkeletonCapability& /*capability*/, XnUserID nId, void* /*pCookie*/)
 {
-	printf("Calibration started for user %d\n", nId);
+    XnUInt32 epochTime = 0;
+    xnOSGetEpochTime(&epochTime);
+    printf("%d Calibration started for user %d\n", epochTime, nId);
 }
-// Callback: Finished calibration
-void XN_CALLBACK_TYPE UserCalibration_CalibrationEnd(xn::SkeletonCapability& capability, XnUserID nId, XnBool bSuccess, void* pCookie)
+
+void XN_CALLBACK_TYPE UserCalibration_CalibrationComplete(xn::SkeletonCapability& /*capability*/, XnUserID nId, XnCalibrationStatus eStatus, void* /*pCookie*/)
 {
-	if (bSuccess)
-	{
-		// Calibration succeeded
-		printf("Calibration complete, start tracking user %d\n", nId);
-		g_UserGenerator.GetSkeletonCap().StartTracking(nId);
-	}
-	else
-	{
-		// Calibration failed
-		printf("Calibration failed for user %d\n", nId);
-		if (g_bNeedPose)
-		{
-			g_UserGenerator.GetPoseDetectionCap().StartPoseDetection(g_strPose, nId);
-		}
-		else
-		{
-			g_UserGenerator.GetSkeletonCap().RequestCalibration(nId, TRUE);
-		}
-	}
+    XnUInt32 epochTime = 0;
+    xnOSGetEpochTime(&epochTime);
+    if (eStatus == XN_CALIBRATION_STATUS_OK)
+    {
+        // Calibration succeeded
+        printf("%d Calibration complete, start tracking user %d\n", epochTime, nId);		
+        g_UserGenerator.GetSkeletonCap().StartTracking(nId);
+    }
+    else
+    {
+        // Calibration failed
+        printf("%d Calibration failed for user %d\n", epochTime, nId);
+        /*
+        if(eStatus==XN_CALIBRATION_STATUS_MANUAL_ABORT)
+        {
+            printf("Manual abort occured, stop attempting to calibrate!");
+            return;
+        }
+        */
+        if (g_bNeedPose)
+        {
+            g_UserGenerator.GetPoseDetectionCap().StartPoseDetection(g_strPose, nId);
+        }
+        else
+        {
+            g_UserGenerator.GetSkeletonCap().RequestCalibration(nId, TRUE);
+        }
+    }
 }
 
 #define XN_CALIBRATION_FILE_NAME "UserCalibration.bin"
@@ -303,6 +318,7 @@ Tracker::~Tracker() {
 int Tracker::initialize(string config_file)
 {
 	XnStatus nRetVal = XN_STATUS_OK;
+    xn::ProductionNode playerNode;
     int argc = 0;
     char **argv = NULL;
 
@@ -310,7 +326,7 @@ int Tracker::initialize(string config_file)
 	{
 		nRetVal = g_Context.Init();
 		CHECK_RC(nRetVal, "Init");
-		nRetVal = g_Context.OpenFileRecording(argv[1]);
+		nRetVal = g_Context.OpenFileRecording(argv[1], playerNode);
 		if (nRetVal != XN_STATUS_OK)
 		{
 			printf("Can't open recording %s: %s\n", argv[1], xnGetStatusString(nRetVal));
@@ -320,7 +336,7 @@ int Tracker::initialize(string config_file)
 	else
 	{
 		xn::EnumerationErrors errors;
-		nRetVal = g_Context.InitFromXmlFile(config_file.c_str(), &errors);
+        nRetVal = g_Context.InitFromXmlFile(config_file.c_str(), g_scriptNode, &errors);
 		if (nRetVal == XN_STATUS_NO_NODE_PRESENT)
 		{
 			XnChar strError[1024];
@@ -344,14 +360,15 @@ int Tracker::initialize(string config_file)
 		CHECK_RC(nRetVal, "Find user generator");
 	}
 
-	XnCallbackHandle hUserCallbacks, hCalibrationCallbacks, hPoseCallbacks;
+    XnCallbackHandle hUserCallbacks, hCalibrationStart, hCalibrationComplete, hPoseDetected;
 	if (!g_UserGenerator.IsCapabilitySupported(XN_CAPABILITY_SKELETON))
 	{
 		printf("Supplied user generator doesn't support skeleton\n");
 		return 1;
 	}
 	g_UserGenerator.RegisterUserCallbacks(User_NewUser, User_LostUser, NULL, hUserCallbacks);
-	g_UserGenerator.GetSkeletonCap().RegisterCalibrationCallbacks(UserCalibration_CalibrationStart, UserCalibration_CalibrationEnd, NULL, hCalibrationCallbacks);
+    g_UserGenerator.GetSkeletonCap().RegisterToCalibrationStart(UserCalibration_CalibrationStart, NULL, hCalibrationStart);
+    g_UserGenerator.GetSkeletonCap().RegisterToCalibrationComplete(UserCalibration_CalibrationComplete, NULL, hCalibrationComplete);
 
 	if (g_UserGenerator.GetSkeletonCap().NeedPoseForCalibration())
 	{
@@ -361,7 +378,7 @@ int Tracker::initialize(string config_file)
 			printf("Pose required, but not supported\n");
 			return 1;
 		}
-		g_UserGenerator.GetPoseDetectionCap().RegisterToPoseCallbacks(UserPose_PoseDetected, NULL, NULL, hPoseCallbacks);
+        g_UserGenerator.GetPoseDetectionCap().RegisterToPoseDetected(UserPose_PoseDetected, NULL, hPoseDetected);
 		g_UserGenerator.GetSkeletonCap().GetCalibrationPose(g_strPose);
 	}
 
@@ -455,13 +472,13 @@ Data Tracker::jointUpdate() {
 
     for(int i = 0; i < wxh; i++) {
         if(d[i] == 0) {
-            data[i * 3 + 0] = 0; 
-            data[i * 3 + 1] = 0; 
-            data[i * 3 + 2] = 0; 
+            data[i * 3 + 0] = 0;
+            data[i * 3 + 1] = 0;
+            data[i * 3 + 2] = 0;
         } else {
-            data[i * 3 + 0] = 1; 
-            data[i * 3 + 1] = 1; 
-            data[i * 3 + 2] = 1; 
+            data[i * 3 + 0] = 1;
+            data[i * 3 + 1] = 1;
+            data[i * 3 + 2] = 1;
         }
     }
 

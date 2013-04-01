@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.2
+#!/usr/bin/env python3.3
 from brokap import Kinect
 
 kinect = Kinect()
