@@ -1,17 +1,19 @@
 #!/bin/bash
 
-sudo apt-get install
+sudo apt-get install \
     build-essential \
     cmake \
+    cython \
     doxygen \
     freeglut3-dev \
-    git-core
+    git-core \
     git-core \
     graphviz \
     libusb-1.0-0-dev \
     libxi-dev \
     libxmu-dev \
     pkg-config \
+    python3.3-dev \
 
 git submodule init
 git submodule update

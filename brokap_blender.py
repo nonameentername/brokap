@@ -9,12 +9,12 @@ except:
     from brokap import Kinect
     kinect = Kinect()
 
-calibration = {}
+calibration = {'x':0, 'y':0, 'z':0}
 
 def set_bone_location(armature, name, location):
     x, y, z = location
     armature.data.edit_bones[name].head.xyz = (x, y, z)
-    armature.data.edit_bones[name].tail.xyz = (x, y, z + 1)
+    armature.data.edit_bones[name].tail.xyz = (x, y + 1, z)
 
 def get_bone_location(armature, name):
     return armature.data.edit_bones[name].head.xyz
@@ -137,6 +137,7 @@ class BrokapUI_calibrate(bpy.types.Operator):
         armature = context.object
 
         if time.time() - self._start > 20:
+            """
             context.window_manager.event_timer_remove(self._timer)
 
             try:
@@ -160,7 +161,7 @@ class BrokapUI_calibrate(bpy.types.Operator):
                 location[2] -= calibration['z']
                 print ('after:', location)
                 set_bone_location(armature, item, location)
-
+            """
             return {'FINISHED'}
 
             """
@@ -230,12 +231,13 @@ class BrokapUI_record(bpy.types.Operator):
             kinect.poll()
 
             for item in kinect.ITEMS:
-                bpy.data.objects[item].location = kinect.get_position(item)
-                bpy.data.objects[item].location[0] -= calibration['x']
-                bpy.data.objects[item].location[1] -= calibration['y']
-                bpy.data.objects[item].location[2] -= calibration['z']
+                bpy.context.object.pose.bones[item].location = kinect.get_position(item)
+                start = bpy.context.object.data.bones[item].head
+                bpy.context.object.pose.bones[item].location[0] -= start[0]
+                bpy.context.object.pose.bones[item].location[1] -= start[1]
+                bpy.context.object.pose.bones[item].location[2] -= start[2]
 
-                #bpy.data.objects[item].rotation_quaternion = Matrix(kinect.get_rotation(item)).to_quaternion()
+                bpy.context.object.pose.bones[item].rotation_quaternion = Matrix(kinect.get_rotation(item)).to_quaternion()
 
             #context.object.location = kinect.get_position('torso')
             #context.object.rotation_quaternion = Matrix(kinect.get_rotation('torso')).to_quaternion()

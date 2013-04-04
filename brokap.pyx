@@ -1,5 +1,6 @@
 from libcpp.vector cimport vector
-import os
+from os import environ
+from os import path
 
 DEF TOTALSIZE = 921600
 
@@ -70,8 +71,8 @@ cdef class Kinect:
 
     def __cinit__(self):
         self.ptr = new Tracker()
-        brokap_home = os.environ['BROKAP_HOME']
-        config_file = os.path.join(brokap_home, 'SamplesConfig.xml').encode('UTF-8')
+        brokap_home = environ['BROKAP_HOME']
+        config_file = path.join(brokap_home, 'SamplesConfig.xml').encode('UTF-8')
         self.ptr.initialize(string(config_file))
         data = self.ptr.poll()
         self._width = data.width

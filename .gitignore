@@ -1,6 +1,7 @@
-tracker_wrap.cxx
-tracker.py*
-_tracker.so
 *.pyc
-brokap.so
+_tracker.so
 brokap.cpp
+brokap.so
+build
+tracker.py*
+tracker_wrap.cxx
