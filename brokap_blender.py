@@ -1,5 +1,7 @@
-import time
 import bpy
+import json
+import os
+import time
 from bgl import *
 from mathutils import Matrix
 
@@ -9,7 +11,14 @@ except:
     from brokap import Kinect
     kinect = Kinect()
 
-calibration = {'x':0, 'y':0, 'z':0}
+calibration_file = os.path.join(os.environ['BROKAP_HOME'], 'calibration.json')
+calibration = [0, 0, 0]
+
+try:
+    with open(calibration_file, 'r') as f:
+        calibration = json.load(f)
+except:
+    pass
 
 def set_bone_location(armature, name, location):
     x, y, z = location
@@ -137,31 +146,30 @@ class BrokapUI_calibrate(bpy.types.Operator):
         armature = context.object
 
         if time.time() - self._start > 20:
-            """
             context.window_manager.event_timer_remove(self._timer)
 
             try:
-                context.region.callback_remove(self._handle)
+                bpy.types.SpaceView3D.draw_handler_remove(BrokapUI_calibrate._handle, 'WINDOW')
             except:
                 pass
 
             torso_location = get_bone_location(armature, 'torso')
             left_foot_location = get_bone_location(armature, 'left_foot')
-            calibration['x'] = torso_location[0]
-            calibration['y'] = torso_location[1]
-            calibration['z'] = left_foot_location[2]
+            calibration[0] = torso_location[0]
+            calibration[1] = torso_location[1]
+            calibration[2] = left_foot_location[2]
 
-            print (calibration)
+            with open(calibration_file, 'w') as f:
+                json.dump(calibration, f)
 
             for item in kinect.ITEMS:
                 location = get_bone_location(armature, item)
                 print ('before:', location)
-                location[0] -= calibration['x']
-                location[1] -= calibration['y']
-                location[2] -= calibration['z']
+                location[0] -= calibration[0]
+                location[1] -= calibration[1]
+                location[2] -= calibration[2]
                 print ('after:', location)
                 set_bone_location(armature, item, location)
-            """
             return {'FINISHED'}
 
             """
@@ -195,7 +203,7 @@ class BrokapUI_calibrate(bpy.types.Operator):
 
         bpy.ops.object.mode_set(mode='EDIT')
         context.window_manager.modal_handler_add(self)
-        self._handle = context.region.callback_add(draw_callback, (self, context), 'POST_PIXEL')
+        BrokapUI_calibrate._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback, (self, context), 'WINDOW', 'POST_PIXEL')
         self.report({'INFO'}, 'start recording')
         self._timer = context.window_manager.event_timer_add(0.1, context.window)
         return {'RUNNING_MODAL'}
@@ -220,11 +228,11 @@ class BrokapUI_record(bpy.types.Operator):
 
         if not bpy.types.brokapui.active:
             context.window_manager.event_timer_remove(self._timer)
-            context.region.callback_remove(self._handle)
+            bpy.types.SpaceView3D.draw_handler_remove(BrokapUI_record._handle, 'WINDOW')
             return {'FINISHED'}
         elif event.type == 'ESC':
             context.window_manager.event_timer_remove(self._timer)
-            context.region.callback_remove(self._handle)
+            bpy.types.SpaceView3D.draw_handler_remove(BrokapUI_record._handle, 'WINDOW')
             return {'CANCELLED'}
         elif event.type == 'TIMER':
             print(context.object.name)
@@ -236,6 +244,10 @@ class BrokapUI_record(bpy.types.Operator):
                 bpy.context.object.pose.bones[item].location[0] -= start[0]
                 bpy.context.object.pose.bones[item].location[1] -= start[1]
                 bpy.context.object.pose.bones[item].location[2] -= start[2]
+
+                bpy.context.object.pose.bones[item].location[0] -= calibration[0]
+                bpy.context.object.pose.bones[item].location[1] -= calibration[1]
+                bpy.context.object.pose.bones[item].location[2] -= calibration[2]
 
                 bpy.context.object.pose.bones[item].rotation_quaternion = Matrix(kinect.get_rotation(item)).to_quaternion()
 
@@ -250,7 +262,7 @@ class BrokapUI_record(bpy.types.Operator):
         bpy.types.brokapui.active = True
 
         context.window_manager.modal_handler_add(self)
-        self._handle = context.region.callback_add(draw_callback, (self, context), 'POST_PIXEL')
+        BrokapUI_record._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback, (self, context), 'WINDOW', 'POST_PIXEL')
         self.report({'INFO'}, 'start recording')
         self._timer = context.window_manager.event_timer_add(0.1, context.window)
         return {'RUNNING_MODAL'}
