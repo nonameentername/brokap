@@ -92,7 +92,7 @@ class BrokapUI(bpy.types.Panel):
 
     def draw_header(self, context):
         layout = self.layout
-        layout.label(text="Brokap panel", icon="ARMATURE_DATA")
+        layout.label(text="Brokap panel", icon="CAMERA_DATA")
 
     def draw(self, context):
         layout = self.layout
@@ -101,6 +101,14 @@ class BrokapUI(bpy.types.Panel):
 
         row = layout.row()
         row.label(text="Active object is: " + obj.name)
+
+        row = layout.row()
+        split = row.split(percentage=0.5)
+        colL = split.column()
+        colR = split.column()
+
+        colL.operator('brokapui.create', text='create', icon='ARMATURE_DATA')
+        colR.operator('brokapui.calibrate', text='calibrate', icon='POSE_DATA')
 
         row = layout.row()
         split = row.split(percentage=0.5)
