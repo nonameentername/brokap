@@ -1,8 +1,11 @@
+*.pcap
 *.pyc
-_tracker.so
+*.so
 brokap.cpp
 brokap.so
+brokap_server
 build
 calibration.json
+kinect/NITE-Bin-Dev-Linux-x64-v1.5.2.23/
 tracker.py*
 tracker_wrap.cxx

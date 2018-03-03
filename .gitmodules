@@ -1,6 +1,9 @@
 [submodule "kinect/SensorKinect"]
 	path = kinect/SensorKinect
-	url = git://github.com/avin2/SensorKinect.git
+	url = https://github.com/nonameentername/SensorKinect.git
 [submodule "kinect/OpenNI"]
 	path = kinect/OpenNI
-	url = https://github.com/OpenNI/OpenNI.git
+	url = https://github.com/nonameentername/OpenNI.git
+[submodule "kinect/NITE"]
+	path = kinect/NITE
+	url = https://github.com/nonameentername/NITE.git

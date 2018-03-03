@@ -1,24 +1,21 @@
+bl_info = {
+    "name": "Brokap",
+    "description": "Receives motion capture data from the xbox 360 kinect",
+    "author": "Werner Mendizabal (nonameentername)",
+    "version": (0, 1),
+    "blender": (2, 78, 0),
+    "location": "View3D > Toolbar > Brokap Receiver",
+    "category": "Animation",
+    'wiki_url': '',
+    'tracker_url': ''
+}
+
 import bpy
 import json
-import os
-import time
+import socket
 from bgl import *
 from mathutils import Matrix
 
-try:
-    kinect.poll()
-except:
-    from brokap import Kinect
-    kinect = Kinect()
-
-calibration_file = os.path.join(os.environ['BROKAP_HOME'], 'calibration.json')
-calibration = [0, 0, 0]
-
-try:
-    with open(calibration_file, 'r') as f:
-        calibration = json.load(f)
-except:
-    pass
 
 def set_bone_location(armature, name, location):
     x, y, z = location
@@ -28,64 +25,13 @@ def set_bone_location(armature, name, location):
 def get_bone_location(armature, name):
     return armature.data.edit_bones[name].head.xyz
 
-def draw_callback(self, context):
-
-    data = kinect.get_data()
-    width = kinect.get_width()
-    height = kinect.get_height()
-
-    buf = Buffer(GL_FLOAT, len(data), data)
-
-    texture = Buffer(GL_INT, 1)
-
-    glEnable(GL_TEXTURE_2D)
-
-    glGenTextures(1, texture)
-
-    glBindTexture(GL_TEXTURE_2D, texture[0])
-
-    glTexImage2D(GL_TEXTURE_2D, 0, 1, width, height, 0, GL_RGB, GL_FLOAT, buf)
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-
-    glEnable(GL_BLEND)
-    glDisable(GL_DEPTH_TEST)
-
-    #glBlendFunc(GL_DST_COLOR, GL_ZERO)
-    glBindTexture(GL_TEXTURE_2D, texture[0])
-    glColor4f(1.0, 1.0, 1.0, 1.0)
-    glLineWidth(10)
-
-
-    glBegin(GL_QUADS)
-
-    glTexCoord2f(0,1)
-    glVertex2i(0,0)
-
-    glTexCoord2f(0,0)
-    glVertex2i(0,100)
-
-    glTexCoord2f(1,0)
-    glVertex2i(100,100)
-
-    glTexCoord2f(1,1)
-    glVertex2i(100,0)
-
-    glEnd()
-
-    glDeleteTextures(1, texture)
-    glLineWidth(1)
-    glDisable(GL_BLEND)
-    glEnable(GL_DEPTH_TEST)
-    glColor4f(0.0, 0.0, 0.0, 1.0)
-
 class BrokapUI(bpy.types.Panel):
-    bl_label = " "
+    bl_label = "Brokap Receiver"
     bl_idname = "brokapui"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-    bl_context = "object"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category = "Brokap"
+    bl_context = "objectmode"
 
     def __init__(self):
         super(BrokapUI, self).__init__()
@@ -97,18 +43,12 @@ class BrokapUI(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
-        obj = context.object
-
-        row = layout.row()
-        row.label(text="Active object is: " + obj.name)
-
         row = layout.row()
         split = row.split(percentage=0.5)
         colL = split.column()
         colR = split.column()
 
         colL.operator('brokapui.create', text='create', icon='ARMATURE_DATA')
-        colR.operator('brokapui.calibrate', text='calibrate', icon='POSE_DATA')
 
         row = layout.row()
         split = row.split(percentage=0.5)
@@ -116,7 +56,7 @@ class BrokapUI(bpy.types.Panel):
         colL = split.column()
         colR = split.column()
 
-        colL.operator('brokapui.record', text='record', icon='PLAY') #PAUSE
+        colL.operator('brokapui.start', text='start', icon='PLAY') #PAUSE
         colR.operator('brokapui.stop', text='stop', icon='PAUSE')
 
 class BrokapUI_create(bpy.types.Operator):
@@ -124,145 +64,79 @@ class BrokapUI_create(bpy.types.Operator):
     bl_idname = 'brokapui.create'
     bl_description = 'Create armature bones'
 
+    def __init__(self):
+        super(BrokapUI_create, self).__init__()
+        self.ITEMS = [
+            'Head',
+            'Neck',
+            'Torso',
+            'Left_Shoulder',
+            'Left_Elbow',
+            'Left_Hand',
+            'Right_Shoulder',
+            'Right_Elbow',
+            'Right_Hand',
+            'Left_Hip',
+            'Left_Knee',
+            'Left_Foot',
+            'Right_Hip',
+            'Right_Knee',
+            'Right_Foot'
+        ]
+
     def invoke(self, context, event):
-        self.report({'INFO'}, 'create armature')
-        bpy.ops.object.armature_add()
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.armature.select_all()
-        bpy.ops.armature.delete()
-        bpy.ops.armature.select_all(action='DESELECT')
-        for item in kinect.ITEMS:
-            bpy.ops.armature.bone_primitive_add(name=item)
-        bpy.ops.object.mode_set(mode='OBJECT')
+        self.report({'INFO'}, 'create trackers')
+        for name in self.ITEMS:
+            bpy.ops.object.empty_add()
+            bpy.context.active_object.name = name
         return {'FINISHED'}
 
-class BrokapUI_calibrate(bpy.types.Operator):
-    bl_label = "Brokap calibrate"
-    bl_idname = 'brokapui.calibrate'
-    bl_description = 'Calibrate kinect movements'
+
+class BrokapUI_start(bpy.types.Operator):
+    bl_label = "Brokap start"
+    bl_idname = 'brokapui.start'
+    bl_description = 'Start kinect tracking'
 
     _timer = None
 
     def __init__(self):
-        pass
+        UDP_PORT = 7000
+        self.sock = socket.socket( socket.AF_INET, socket.SOCK_DGRAM )
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.setblocking(0)
+        self.sock.bind( ("127.0.0.1", UDP_PORT) )
 
     def __del__(self):
         pass
 
     def modal(self, context, event):
-        context.area.tag_redraw()
-        armature = context.object
-
-        if time.time() - self._start > 20:
-            context.window_manager.event_timer_remove(self._timer)
-
-            try:
-                bpy.types.SpaceView3D.draw_handler_remove(BrokapUI_calibrate._handle, 'WINDOW')
-            except:
-                pass
-
-            torso_location = get_bone_location(armature, 'torso')
-            left_foot_location = get_bone_location(armature, 'left_foot')
-            calibration[0] = torso_location[0]
-            calibration[1] = torso_location[1]
-            calibration[2] = left_foot_location[2]
-
-            with open(calibration_file, 'w') as f:
-                json.dump(calibration, f)
-
-            for item in kinect.ITEMS:
-                location = get_bone_location(armature, item)
-                print ('before:', location)
-                location[0] -= calibration[0]
-                location[1] -= calibration[1]
-                location[2] -= calibration[2]
-                print ('after:', location)
-                set_bone_location(armature, item, location)
-            return {'FINISHED'}
-
-            """
-            def translate_bone(armature, name, translation):
-                tx, ty, tz = translation
-                x, y, z = armature.data.edit_bones[name].head.xyz
-                armature.data.edit_bones[name].head.xyz = (x + tx, y + ty, z + tz)
-                armature.data.edit_bones[name].tail.xyz = (x + tx, y + ty, z + tz + 1)
-
-            """
-
-            #bpy.ops.object.mode_set(mode='OBJECT')
-
-        elif event.type == 'ESC':
-            context.window_manager.event_timer_remove(self._timer)
-            context.region.callback_remove(self._handle)
-            bpy.ops.object.mode_set(mode='OBJECT')
-            return {'CANCELLED'}
-        elif event.type == 'TIMER':
-            print(context.object.name)
-            kinect.poll()
-
-            if context.edit_object:
-                for item in kinect.ITEMS:
-                    set_bone_location(armature, item, kinect.get_position(item))
-
-        return {'PASS_THROUGH'}
-
-    def execute(self, context):
-        self._start = time.time()
-
-        bpy.ops.object.mode_set(mode='EDIT')
-        context.window_manager.modal_handler_add(self)
-        BrokapUI_calibrate._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback, (self, context), 'WINDOW', 'POST_PIXEL')
-        self.report({'INFO'}, 'start recording')
-        self._timer = context.window_manager.event_timer_add(0.1, context.window)
-        return {'RUNNING_MODAL'}
-
-
-
-class BrokapUI_record(bpy.types.Operator):
-    bl_label = "Brokap record"
-    bl_idname = 'brokapui.record'
-    bl_description = 'Record kinect movements'
-
-    _timer = None
-
-    def __init__(self):
-        pass
-
-    def __del__(self):
-        pass
-
-    def modal(self, context, event):
-        context.area.tag_redraw()
-
         if not bpy.types.brokapui.active:
             context.window_manager.event_timer_remove(self._timer)
-            bpy.types.SpaceView3D.draw_handler_remove(BrokapUI_record._handle, 'WINDOW')
             return {'FINISHED'}
         elif event.type == 'ESC':
             context.window_manager.event_timer_remove(self._timer)
-            bpy.types.SpaceView3D.draw_handler_remove(BrokapUI_record._handle, 'WINDOW')
             return {'CANCELLED'}
         elif event.type == 'TIMER':
-            print(context.object.name)
-            kinect.poll()
+            receive = True
 
-            for item in kinect.ITEMS:
-                bpy.context.object.pose.bones[item].location = kinect.get_position(item)
-                start = bpy.context.object.data.bones[item].head
-                bpy.context.object.pose.bones[item].location[0] -= start[0]
-                bpy.context.object.pose.bones[item].location[1] -= start[1]
-                bpy.context.object.pose.bones[item].location[2] -= start[2]
+            try:
+                data = json.loads(self.sock.recv( 1024 ))
+            except:
+                data = None
+                receive = False
 
-                bpy.context.object.pose.bones[item].location[0] -= calibration[0]
-                bpy.context.object.pose.bones[item].location[1] -= calibration[1]
-                bpy.context.object.pose.bones[item].location[2] -= calibration[2]
+            while receive:
+                print ('running')
+                name = data['name']
+                position = data['position']
+                rotation = data['rotation']
+                bpy.data.objects[name].location = position
+                bpy.data.objects[name].rotation_quaternion = Matrix(rotation).to_quaternion()
 
-                bpy.context.object.pose.bones[item].rotation_quaternion = Matrix(kinect.get_rotation(item)).to_quaternion()
-
-            #context.object.location = kinect.get_position('torso')
-            #context.object.rotation_quaternion = Matrix(kinect.get_rotation('torso')).to_quaternion()
-
-            #draw_callback(self, context)
+                try:
+                    data = json.loads(self.sock.recv( 1024 ))
+                except:
+                    break
 
         return {'PASS_THROUGH'}
 
@@ -270,8 +144,7 @@ class BrokapUI_record(bpy.types.Operator):
         bpy.types.brokapui.active = True
 
         context.window_manager.modal_handler_add(self)
-        BrokapUI_record._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback, (self, context), 'WINDOW', 'POST_PIXEL')
-        self.report({'INFO'}, 'start recording')
+        self.report({'INFO'}, 'start kinect tracking')
         self._timer = context.window_manager.event_timer_add(0.1, context.window)
         return {'RUNNING_MODAL'}
 
@@ -279,26 +152,24 @@ class BrokapUI_record(bpy.types.Operator):
 class BrokapUI_stop(bpy.types.Operator):
     bl_label = "Brokap stop"
     bl_idname = 'brokapui.stop'
-    bl_description = 'Stop recording'
+    bl_description = 'Stop kinect tracking'
 
     def invoke(self, context, event):
-        self.report({'INFO'}, 'stop recording')
+        self.report({'INFO'}, 'stop kinect tracking')
         bpy.types.brokapui.active = False
         return {'FINISHED'}
 
 def register():
     bpy.utils.register_class(BrokapUI)
     bpy.utils.register_class(BrokapUI_create)
-    bpy.utils.register_class(BrokapUI_calibrate)
-    bpy.utils.register_class(BrokapUI_record)
+    bpy.utils.register_class(BrokapUI_start)
     bpy.utils.register_class(BrokapUI_stop)
 
 
 def unregister():
     bpy.utils.unregister_class(BrokapUI)
     bpy.utils.unregister_class(BrokapUI_create)
-    bpy.utils.unregister_class(BrokapUI_calibrate)
-    bpy.utils.unregister_class(BrokapUI_record)
+    bpy.utils.unregister_class(BrokapUI_start)
     bpy.utils.unregister_class(BrokapUI_stop)
 
 

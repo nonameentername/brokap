@@ -1,8 +1,13 @@
+import json
+import os
+import socket
+import time
 from libcpp.vector cimport vector
 from os import environ
 from os import path
 
 DEF TOTALSIZE = 921600
+UDP_PORT = 7000
 
 cdef extern from "string" namespace "std":
     cdef cppclass string:
@@ -39,39 +44,26 @@ cdef class Kinect:
     cdef object _items
 
     ITEMS = [
-        'head',
-        'neck',
-        'torso',
-        #'waist',
-
-        #'left_collar',
-        'left_shoulder',
-        'left_elbow',
-        #'left_wrist',
-        'left_hand',
-        #'left_fingertip',
-
-        #'right_collar',
-        'right_shoulder',
-        'right_elbow',
-        #'right_wrist',
-        'right_hand',
-        #'right_fingertip',
-
-        'left_hip',
-        'left_knee',
-        #'left_ankle',
-        'left_foot',
-
-        'right_hip',
-        'right_knee',
-        #'right_ankle',
-        'right_foot',
+        'Head',
+        'Neck',
+        'Torso',
+        'Left_Shoulder',
+        'Left_Elbow',
+        'Left_Hand',
+        'Right_Shoulder',
+        'Right_Elbow',
+        'Right_Hand',
+        'Left_Hip',
+        'Left_Knee',
+        'Left_Foot',
+        'Right_Hip',
+        'Right_Knee',
+        'Right_Foot'
     ]
 
     def __cinit__(self):
         self.ptr = new Tracker()
-        brokap_home = environ['BROKAP_HOME']
+        brokap_home = os.getcwd()
         config_file = path.join(brokap_home, 'SamplesConfig.xml').encode('UTF-8')
         self.ptr.initialize(string(config_file))
         data = self.ptr.poll()
@@ -79,34 +71,34 @@ cdef class Kinect:
         self._height = data.height
 
         self._items = [
-            'head',
-            'neck',
-            'torso',
-            'waist',
+            'Head',
+            'Neck',
+            'Torso',
+            'Waist',
 
-            'left_collar',
-            'left_shoulder',
-            'left_elbow',
-            'left_wrist',
-            'left_hand',
-            'left_fingertip',
+            'Left_Collar',
+            'Left_Shoulder',
+            'Left_Elbow',
+            'Left_Wrist',
+            'Left_Hand',
+            'Left_Fingertip',
 
-            'right_collar',
-            'right_shoulder',
-            'right_elbow',
-            'right_wrist',
-            'right_hand',
-            'right_fingertip',
+            'Right_Collar',
+            'Right_Shoulder',
+            'Right_Elbow',
+            'Right_Wrist',
+            'Right_Hand',
+            'Right_Fingertip',
 
-            'left_hip',
-            'left_knee',
-            'left_ankle',
-            'left_foot',
+            'Left_Hip',
+            'Left_Knee',
+            'Left_Ankle',
+            'Left_Foot',
 
-            'right_hip',
-            'right_knee',
-            'right_ankle',
-            'right_foot',
+            'Right_Hip',
+            'Right_Knee',
+            'Right_Ankle',
+            'Right_Foot',
         ]
 
 
@@ -167,3 +159,22 @@ cdef class Kinect:
 
     def get_data(self):
         return self._data
+
+
+if __name__ == '__main__':
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind( ("127.0.0.1", UDP_PORT) )
+
+    kinect = Kinect()
+
+    while True:
+        kinect.poll()
+
+        for name in kinect.ITEMS:
+            data = json.dumps({
+                'name': name,
+                'position': kinect.get_position(name),
+                'rotation': kinect.get_rotation(name)
+            })
+            sock.sendto(data.encode(), ('127.0.0.1', UDP_PORT))
